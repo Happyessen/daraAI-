@@ -1,0 +1,629 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+/* Modern Dashboard Styling */
+.dashboard-container {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 2rem;
+}
+
+.dashboard-card {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.15);
+}
+
+.kpi-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.kpi-card-modern {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: 20px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.kpi-card-modern::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+    transform: rotate(45deg);
+    transition: all 0.6s ease;
+}
+
+.kpi-card-modern:hover::before {
+    animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+    100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+}
+
+.kpi-value-modern {
+    font-size: 2.5rem;
+    font-weight: 900;
+    margin-bottom: 0.5rem;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+}
+
+.kpi-label-modern {
+    font-size: 1rem;
+    opacity: 0.9;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.kpi-icon {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    font-size: 2rem;
+    opacity: 0.3;
+}
+
+.chart-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.chart-card {
+    background: white;
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.chart-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+}
+
+.qa-section {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 20px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    backdrop-filter: blur(10px);
+}
+
+.question-input-modern {
+    border: none;
+    border-radius: 50px;
+    padding: 1rem 2rem;
+    font-size: 1.1rem;
+    background: rgba(255, 255, 255, 0.8);
+    box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.question-input-modern:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3), inset 0 2px 10px rgba(0, 0, 0, 0.1);
+    background: white;
+}
+
+.btn-ask-modern {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    border-radius: 50px;
+    padding: 1rem 2rem;
+    color: white;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn-ask-modern:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+    color: white;
+}
+
+.chat-container-modern {
+    max-height: 500px;
+    overflow-y: auto;
+    background: rgba(248, 249, 250, 0.5);
+    border-radius: 15px;
+    padding: 1rem;
+    backdrop-filter: blur(5px);
+}
+
+.message-user {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 20px 20px 5px 20px;
+    margin: 0.5rem 0;
+    margin-left: 20%;
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+}
+
+.message-assistant {
+    background: white;
+    padding: 1rem 1.5rem;
+    border-radius: 20px 20px 20px 5px;
+    margin: 0.5rem 0;
+    margin-right: 20%;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    border-left: 4px solid #667eea;
+}
+
+.dashboard-header {
+    text-align: center;
+    color: white;
+    margin-bottom: 3rem;
+}
+
+.dashboard-title {
+    font-size: 3rem;
+    font-weight: 900;
+    margin-bottom: 1rem;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+}
+
+.dashboard-subtitle {
+    font-size: 1.2rem;
+    opacity: 0.9;
+    font-weight: 300;
+}
+
+.section-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: white;
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.floating-element {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-20px); }
+}
+
+.refresh-btn {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+    transition: all 0.3s ease;
+    z-index: 1000;
+}
+
+.refresh-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4);
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+    .dashboard-title {
+        font-size: 2rem;
+    }
+    
+    .kpi-container {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+    
+    .chart-container {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .kpi-value-modern {
+        font-size: 2rem;
+    }
+    
+    .message-user,
+    .message-assistant {
+        margin-left: 0;
+        margin-right: 0;
+    }
+}
+
+/* Loading animation */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.loading {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+</style>
+
+<div class="dashboard-container">
+    <!-- Floating background elements -->
+    <div class="floating-element" style="top: 10%; left: 5%; width: 100px; height: 100px; animation-delay: 0s;"></div>
+    <div class="floating-element" style="top: 20%; right: 10%; width: 150px; height: 150px; animation-delay: 2s;"></div>
+    <div class="floating-element" style="bottom: 30%; left: 8%; width: 80px; height: 80px; animation-delay: 4s;"></div>
+
+    {% if not error %}
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <h1 class="dashboard-title">
+            <i class="fas fa-chart-line"></i> DARA Analytics Dashboard
+        </h1>
+        <p class="dashboard-subtitle">Intelligent insights powered by JADA</p>
+    </div>
+
+    <!-- Q&A Section -->
+    <div class="qa-section">
+        <h3 class="text-center mb-4" style="color: #2C3E50;">
+            <i class="fas fa-question-circle"></i> Ask Dara Questions About Your Data
+        </h3>
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <div class="input-group">
+                    <input type="text" class="form-control question-input-modern" id="questionInput" 
+                           placeholder="What insights can you show me from this data?">
+                    <button class="btn btn-ask-modern ms-3" type="button" onclick="askQuestion()">
+                        <i class="fas fa-paper-plane"></i> Ask dara
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="dropdown">
+                    <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button" 
+                            data-bs-toggle="dropdown" style="border-radius: 25px;">
+                        <i class="fas fa-lightbulb"></i> Sample Questions
+                    </button>
+                    <ul class="dropdown-menu w-100">
+                        <li><a class="dropdown-item" href="#" onclick="setQuestion('What are the key trends in my data?')">Key trends analysis</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="setQuestion('Show me the top performers')">Top performers</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="setQuestion('What insights can you find?')">Find insights</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="setQuestion('How is performance distributed?')">Performance distribution</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div id="chatHistory" class="chat-container-modern mt-4" style="display: none;">
+            <div id="chatMessages"></div>
+        </div>
+    </div>
+
+    <!-- KPIs Section -->
+    {% if kpis %}
+    <h2 class="section-title">
+        <i class="fas fa-tachometer-alt"></i> Key Performance Indicators
+    </h2>
+    <div class="kpi-container">
+        {% for kpi in kpis %}
+        <div class="kpi-card-modern">
+            <div class="kpi-icon">
+                {% if 'revenue' in kpi.label.lower() or 'sales' in kpi.label.lower() or 'profit' in kpi.label.lower() %}
+                    <i class="fas fa-dollar-sign"></i>
+                {% elif 'count' in kpi.label.lower() or 'number' in kpi.label.lower() or 'quantity' in kpi.label.lower() %}
+                    <i class="fas fa-hashtag"></i>
+                {% elif 'avg' in kpi.label.lower() or 'average' in kpi.label.lower() %}
+                    <i class="fas fa-chart-bar"></i>
+                {% else %}
+                    <i class="fas fa-chart-pie"></i>
+                {% endif %}
+            </div>
+            <div class="kpi-value-modern">
+                {% if kpi.isnum %}
+                    {{ "{:,.0f}".format(kpi.value) if kpi.value == kpi.value|int else "{:,.2f}".format(kpi.value) }}
+                {% else %}
+                    {{ kpi.value }}
+                {% endif %}
+            </div>
+            <div class="kpi-label-modern">{{ kpi.label }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Charts Section -->
+    {% if chart_urls %}
+    <h2 class="section-title">
+        <i class="fas fa-chart-area"></i> Data Visualizations
+    </h2>
+    <div class="chart-container">
+        {% for chart_url in chart_urls %}
+        <div class="chart-card">
+            <div class="text-center">
+                <img src="{{ chart_url }}" alt="Data Visualization" class="img-fluid" 
+                     style="max-height: 400px; border-radius: 10px;">
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Tables Section -->
+    {% if tables %}
+    <h2 class="section-title">
+        <i class="fas fa-table"></i> Data Insights
+    </h2>
+    <div class="row">
+        {% for table in tables %}
+        <div class="col-12 mb-4">
+            <div class="dashboard-card" style="padding: 2rem;">
+                {{ table|safe }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Dashboard Analysis -->
+    {% if dashboard_plan_html %}
+    <div class="dashboard-card" style="padding: 2rem; margin-top: 2rem;">
+        <h3 style="color: #2C3E50; margin-bottom: 1.5rem;">
+            <i class="fas fa-brain"></i> daraAI Analysis Summary
+        </h3>
+        <div style="color: #34495E; line-height: 1.6;">
+            {{ dashboard_plan_html|safe }}
+        </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <!-- Error State -->
+    <div class="dashboard-header">
+        <h1 class="dashboard-title">
+            <i class="fas fa-exclamation-triangle"></i> Dashboard Unavailable
+        </h1>
+        <p class="dashboard-subtitle">{{ error }}</p>
+        <a href="/" class="btn btn-light btn-lg mt-3" style="border-radius: 25px;">
+            <i class="fas fa-upload"></i> Upload Data
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Floating Refresh Button -->
+    <button class="refresh-btn" onclick="refreshDashboard()" title="Refresh Dashboard">
+        <i class="fas fa-sync-alt"></i>
+    </button>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let questionCount = 0;
+
+function handleKeyPress(event) {
+    if (event.key === 'Enter') {
+        askQuestion();
+    }
+}
+
+function setQuestion(question) {
+    document.getElementById('questionInput').value = question;
+}
+
+function askQuestion() {
+    const questionInput = document.getElementById('questionInput');
+    const question = questionInput.value.trim();
+    
+    if (!question) {
+        showNotification('Please enter a question', 'warning');
+        return;
+    }
+    
+    const chatHistory = document.getElementById('chatHistory');
+    chatHistory.style.display = 'block';
+    
+    addMessageToChat('user', question);
+    questionInput.value = '';
+    addMessageToChat('assistant', '<i class="fas fa-brain"></i> Analyzing your data with AI...', 'loading');
+    
+    fetch('/ask-question', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({question: question})
+    })
+    .then(response => response.json())
+    .then(data => {
+        const loadingMessage = document.querySelector('.loading');
+        if (loadingMessage) {
+            loadingMessage.remove();
+        }
+        
+        if (data.error) {
+            addMessageToChat('assistant', `<div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle"></i> ${data.error}
+            </div>`);
+        } else {
+            addMessageToChat('assistant', data.answer_html);
+            
+            if (data.kpis && data.kpis.length > 0) {
+                let kpiHtml = '<div class="row mt-3">';
+                data.kpis.forEach(kpi => {
+                    const value = kpi.isnum ? 
+                        (kpi.value === parseInt(kpi.value) ? parseInt(kpi.value).toLocaleString() : parseFloat(kpi.value).toLocaleString()) : 
+                        kpi.value;
+                    kpiHtml += `
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card bg-gradient-primary text-white">
+                                <div class="card-body text-center p-3">
+                                    <h6 class="card-title mb-1">${kpi.label}</h6>
+                                    <h4 class="mb-0">${value}</h4>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                kpiHtml += '</div>';
+                addMessageToChat('assistant', kpiHtml);
+            }
+            
+            if (data.chart_urls && data.chart_urls.length > 0) {
+                let chartHtml = '<div class="mt-3">';
+                data.chart_urls.forEach(url => {
+                    chartHtml += `
+                        <div class="text-center mb-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <img src="${url}" alt="AI Generated Chart" class="img-fluid" 
+                                         style="max-height: 400px; border-radius: 8px;">
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                chartHtml += '</div>';
+                addMessageToChat('assistant', chartHtml);
+            }
+        }
+        
+        scrollChatToBottom();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        const loadingMessage = document.querySelector('.loading');
+        if (loadingMessage) {
+            loadingMessage.remove();
+        }
+        addMessageToChat('assistant', `<div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle"></i> Sorry, I encountered an error while processing your question.
+        </div>`);
+        scrollChatToBottom();
+    });
+}
+
+function addMessageToChat(sender, message, className = '') {
+    questionCount++;
+    const chatMessages = document.getElementById('chatMessages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `mb-3 ${className}`;
+    
+    if (sender === 'user') {
+        messageDiv.innerHTML = `
+            <div class="message-user">
+                <strong><i class="fas fa-user"></i> You:</strong> ${message}
+            </div>
+        `;
+    } else {
+        messageDiv.innerHTML = `
+            <div class="message-assistant">
+                <div class="d-flex align-items-center mb-2">
+                    <i class="fas fa-robot text-primary me-2"></i>
+                    <strong>AI Assistant:</strong>
+                </div>
+                <div>${message}</div>
+            </div>
+        `;
+    }
+    
+    chatMessages.appendChild(messageDiv);
+    scrollChatToBottom();
+}
+
+function scrollChatToBottom() {
+    const chatHistory = document.getElementById('chatHistory');
+    chatHistory.scrollTop = chatHistory.scrollHeight;
+}
+
+function refreshDashboard() {
+    const refreshBtn = document.querySelector('.refresh-btn');
+    const originalHTML = refreshBtn.innerHTML;
+    refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    
+    showNotification('Refreshing dashboard...', 'info');
+    
+    setTimeout(() => {
+        location.reload();
+    }, 1000);
+}
+
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = `
+        top: 20px; 
+        right: 20px; 
+        z-index: 9999; 
+        max-width: 300px;
+        border-radius: 10px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    `;
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 3000);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const questionInput = document.getElementById('questionInput');
+    if (questionInput) {
+        questionInput.focus();
+        questionInput.addEventListener('keypress', handleKeyPress);
+    }
+    
+    const kpiCards = document.querySelectorAll('.kpi-card-modern');
+    kpiCards.forEach((card, index) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(20px)';
+        setTimeout(() => {
+            card.style.transition = 'all 0.6s ease';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        }, index * 100);
+    });
+    
+    const chartCards = document.querySelectorAll('.chart-card');
+    chartCards.forEach((card, index) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateX(-20px)';
+        setTimeout(() => {
+            card.style.transition = 'all 0.6s ease';
+            card.style.opacity = '1';
+            card.style.transform = 'translateX(0)';
+        }, (index + kpiCards.length) * 100);
+    });
+});
+</script>
+{% endblock %}

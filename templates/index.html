@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="text-center mb-4">
+                <i class="fas fa-upload"></i> Upload Your Data
+            </h1>
+        </div>
+    </div>
+
+    <!-- Upload Section -->
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h5><i class="fas fa-file-upload"></i> Data Upload</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="file" class="form-label">Choose CSV or Excel file</label>
+                            <input class="form-control" type="file" id="file" name="file" 
+                                   accept=".csv,.xlsx,.xls" required>
+                            <div class="form-text">
+                                <i class="fas fa-info-circle"></i> 
+                                Supported formats: CSV (.csv), Excel (.xlsx, .xls). Max file size: 50MB
+                            </div>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-upload"></i> Upload & Analyze
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Preview -->
+    {% if table %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <h5><i class="fas fa-table"></i> Data Preview</h5>
+                    {% if filename %}
+                    <span class="badge bg-light text-dark">{{ filename }}</span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        {{ table|safe }}
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="row mt-3">
+                        <div class="col-md-4">
+                            <a href="/data-quality" class="btn btn-outline-warning w-100">
+                                <i class="fas fa-broom"></i> Analyze Data Quality
+                            </a>
+                        </div>
+                        <div class="col-md-4">
+                            <a href="/dashboard" class="btn btn-success w-100">
+                                <i class="fas fa-tachometer-alt"></i> Generate Dashboard
+                            </a>
+                        </div>
+                        <div class="col-md-4">
+                            <button class="btn btn-info w-100" onclick="showDataInfo()">
+                                <i class="fas fa-info-circle"></i> Data Information
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Getting Started Guide -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <h5><i class="fas fa-rocket"></i> Getting Started</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-step-forward text-primary"></i> Step 1: Upload Your Data</h6>
+                            <p>Upload a CSV or Excel file containing your data. The system will automatically detect column types and prepare for analysis.</p>
+                            
+                            <h6><i class="fas fa-step-forward text-primary"></i> Step 2: Generate Dashboard</h6>
+                            <p>Click "Generate Dashboard" to create AI-powered visualizations and insights from your data.</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-step-forward text-primary"></i> Step 3: Explore Insights</h6>
+                            <p>View automatically generated KPIs, charts, and data analysis tailored to your dataset.</p>
+                            
+                            <h6><i class="fas fa-step-forward text-primary"></i> Step 4: Ask Questions</h6>
+                            <p>Use the Q&A interface to ask natural language questions about your data and get instant insights.</p>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <div class="text-primary mb-2">
+                                <i class="fas fa-file-csv fa-2x"></i>
+                            </div>
+                            <h6>CSV Support</h6>
+                            <small class="text-muted">Comma-separated values</small>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-success mb-2">
+                                <i class="fas fa-file-excel fa-2x"></i>
+                            </div>
+                            <h6>Excel Support</h6>
+                            <small class="text-muted">.xlsx and .xls files</small>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-info mb-2">
+                                <i class="fas fa-robot fa-2x"></i>
+                            </div>
+                            <h6>JADA-Powered</h6>
+                            <small class="text-muted">Intelligent analysis</small>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-warning mb-2">
+                                <i class="fas fa-bolt fa-2x"></i>
+                            </div>
+                            <h6>Real-time</h6>
+                            <small class="text-muted">Instant insights</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Data Info Modal -->
+<div class="modal fade" id="dataInfoModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-info-circle"></i> Data Information</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="dataInfoContent">
+                    <div class="text-center">
+                        <i class="fas fa-spinner fa-spin"></i> Loading data information...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showDataInfo() {
+    const modal = new bootstrap.Modal(document.getElementById('dataInfoModal'));
+    modal.show();
+    
+    // Simulate data info
+    setTimeout(() => {
+        document.getElementById('dataInfoContent').innerHTML = `
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Dataset Overview</h6>
+                    <ul class="list-unstyled">
+                        <li><strong>Status:</strong> <span class="badge bg-success">Ready for Analysis</span></li>
+                        <li><strong>Next Steps:</strong> Generate dashboard to see insights</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h6>Recommended Actions</h6>
+                    <div class="d-grid gap-2">
+                        <a href="/data-quality" class="btn btn-sm btn-outline-warning">
+                            <i class="fas fa-broom"></i> Analyze Quality
+                        </a>
+                        <a href="/dashboard" class="btn btn-sm btn-outline-success">
+                            <i class="fas fa-chart-line"></i> Create Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        `;
+    }, 1500);
+}
+
+// File upload validation
+document.getElementById('file').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) {
+        const fileName = file.name;
+        const fileSize = file.size;
+        const maxSize = 50 * 1024 * 1024; // 50MB
+        
+        // Check file size
+        if (fileSize > maxSize) {
+            alert('File size exceeds 50MB limit. Please choose a smaller file.');
+            e.target.value = '';
+            return;
+        }
+        
+        // Check file extension
+        const allowedExtensions = ['.csv', '.xlsx', '.xls'];
+        const fileExtension = fileName.toLowerCase().substring(fileName.lastIndexOf('.'));
+        
+        if (!allowedExtensions.includes(fileExtension)) {
+            alert('Please select a CSV or Excel file (.csv, .xlsx, .xls)');
+            e.target.value = '';
+            return;
+        }
+        
+        // Show file info
+        const fileInfo = document.createElement('div');
+        fileInfo.className = 'alert alert-info mt-2';
+        fileInfo.innerHTML = `
+            <i class="fas fa-file"></i> Selected: <strong>${fileName}</strong> 
+            (${(fileSize / 1024 / 1024).toFixed(2)} MB)
+        `;
+        
+        // Remove any existing file info
+        const existingInfo = document.querySelector('.file-info');
+        if (existingInfo) {
+            existingInfo.remove();
+        }
+        
+        fileInfo.classList.add('file-info');
+        e.target.parentNode.appendChild(fileInfo);
+    }
+});
+
+// Form submission handling
+document.querySelector('form').addEventListener('submit', function(e) {
+    const fileInput = document.getElementById('file');
+    const submitBtn = document.querySelector('button[type="submit"]');
+    
+    if (!fileInput.files[0]) {
+        e.preventDefault();
+        alert('Please select a file to upload');
+        return;
+    }
+    
+    // Show loading state
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
+    submitBtn.disabled = true;
+});
+</script>
+{% endblock %}
