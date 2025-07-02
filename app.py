@@ -8,7 +8,11 @@ import os
 import re
 import uuid
 import json
+import requests  # Added for diagnostic functions
+import time      # Added for diagnostic functions
 from datetime import datetime
+from dotenv import load_dotenv
+load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = "supersecret"
@@ -1101,7 +1105,7 @@ def dashboard():
         client = openai.AzureOpenAI(
             api_key=os.getenv("AZURE_OPENAI_API_KEY"),
             azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-            api_version="2024-02-15-preview"
+            api_version="2024-02-15-preview"  # FIXED: Use consistent API version
         )
         
         response = client.chat.completions.create(
@@ -1185,6 +1189,244 @@ def dashboard():
                          chart_urls=chart_urls,
                          tables=html_tables,
                          error=None)
+
+##############################################
+# DIAGNOSTIC ROUTES                          #
+##############################################
+
+@app.route('/check-env')
+def check_env():
+    """Check if environment variables are loaded correctly"""
+    return jsonify({
+        'AZURE_OPENAI_ENDPOINT': os.getenv("AZURE_OPENAI_ENDPOINT"),
+        'AZURE_OPENAI_DEPLOYMENT': os.getenv("AZURE_OPENAI_DEPLOYMENT"),
+        'AZURE_OPENAI_API_KEY_PREVIEW': os.getenv("AZURE_OPENAI_API_KEY")[:10] + "..." if os.getenv("AZURE_OPENAI_API_KEY") else None,
+        'environment_file_exists': os.path.exists('.env'),
+        'current_directory': os.getcwd(),
+        'env_file_path': os.path.abspath('.env') if os.path.exists('.env') else 'Not found'
+    })
+
+@app.route('/azure-debug')
+def azure_debug():
+    """Complete Azure OpenAI debugging"""
+    
+    endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+    deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT")
+    api_key = os.getenv("AZURE_OPENAI_API_KEY")
+    
+    debug_info = {
+        'configuration': {
+            'endpoint': endpoint,
+            'deployment': deployment,
+            'has_api_key': bool(api_key),
+            'api_key_length': len(api_key) if api_key else 0
+        },
+        'issues': [],
+        'fixes': [],
+        'test_results': {}
+    }
+    
+    # Check each component
+    if not endpoint:
+        debug_info['issues'].append("AZURE_OPENAI_ENDPOINT not set")
+        debug_info['fixes'].append("Add AZURE_OPENAI_ENDPOINT to your .env file")
+    else:
+        # Validate endpoint format
+        if not endpoint.startswith('https://'):
+            debug_info['issues'].append("Endpoint should start with https://")
+        
+        if '.openai.azure.com' not in endpoint:
+            debug_info['issues'].append("Endpoint should contain '.openai.azure.com'")
+            debug_info['fixes'].append(f"Change endpoint to: https://[your-resource-name].openai.azure.com/")
+        
+        if not endpoint.endswith('/'):
+            debug_info['issues'].append("Endpoint should end with /")
+            debug_info['fixes'].append(f"Add trailing slash: {endpoint}/")
+    
+    if not deployment:
+        debug_info['issues'].append("AZURE_OPENAI_DEPLOYMENT not set")
+        debug_info['fixes'].append("Add AZURE_OPENAI_DEPLOYMENT to your .env file")
+    
+    if not api_key:
+        debug_info['issues'].append("AZURE_OPENAI_API_KEY not set")
+        debug_info['fixes'].append("Add AZURE_OPENAI_API_KEY to your .env file")
+    
+    # Test different API versions if basic config is present
+    if endpoint and deployment and api_key:
+        api_versions = ["2024-02-15-preview", "2023-12-01-preview", "2023-05-15"]
+        
+        for api_version in api_versions:
+            test_url = f"{endpoint}openai/deployments/{deployment}/chat/completions?api-version={api_version}"
+            
+            try:
+                headers = {
+                    "Content-Type": "application/json",
+                    "api-key": api_key
+                }
+                
+                data = {
+                    "messages": [{"role": "user", "content": "test"}],
+                    "max_tokens": 1
+                }
+                
+                response = requests.post(test_url, headers=headers, json=data, timeout=5)
+                
+                debug_info['test_results'][api_version] = {
+                    'status_code': response.status_code,
+                    'url': test_url,
+                    'success': response.status_code == 200,
+                    'error': response.text if response.status_code != 200 else None
+                }
+                
+                if response.status_code == 200:
+                    debug_info['fixes'].append(f"✅ Working configuration found with API version {api_version}")
+                    break
+                    
+            except Exception as e:
+                debug_info['test_results'][api_version] = {
+                    'status_code': 'ERROR',
+                    'error': str(e),
+                    'success': False
+                }
+    
+    return jsonify(debug_info)
+
+@app.route('/test-openai-simple')
+def test_openai_simple():
+    """Simple test of OpenAI configuration"""
+    try:
+        client = openai.AzureOpenAI(
+            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+            api_version="2024-02-15-preview"
+        )
+        
+        response = client.chat.completions.create(
+            model=os.getenv("AZURE_OPENAI_DEPLOYMENT"),
+            messages=[{"role": "user", "content": "Hello"}],
+            max_tokens=5
+        )
+        
+        return jsonify({
+            'status': 'SUCCESS',
+            'response': response.choices[0].message.content,
+            'model_used': os.getenv("AZURE_OPENAI_DEPLOYMENT")
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'ERROR',
+            'error': str(e),
+            'error_type': type(e).__name__,
+            'endpoint': os.getenv("AZURE_OPENAI_ENDPOINT"),
+            'deployment': os.getenv("AZURE_OPENAI_DEPLOYMENT")
+        })
+
+@app.route('/create-env-file')
+def create_env_file():
+    """Create a template .env file"""
+    env_content = """# Azure OpenAI Configuration - Replace with your actual values
+AZURE_OPENAI_API_KEY=your_api_key_here
+AZURE_OPENAI_ENDPOINT=https://your-resource-name.openai.azure.com/
+AZURE_OPENAI_DEPLOYMENT=your-deployment-name
+
+# How to get these values:
+# 1. Go to https://portal.azure.com
+# 2. Find your OpenAI resource
+# 3. Go to "Keys and Endpoint" - copy the endpoint and key
+# 4. Go to "Model deployments" - copy the deployment name exactly
+"""
+    
+    try:
+        with open('.env', 'w') as f:
+            f.write(env_content)
+        
+        return jsonify({
+            'status': 'success',
+            'message': '.env file created successfully',
+            'path': os.path.abspath('.env'),
+            'next_steps': [
+                'Edit the .env file with your actual Azure values',
+                'Restart your Flask application',
+                'Test with /check-env'
+            ]
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'error': str(e)
+        })
+
+@app.route('/dashboard-working')
+def dashboard_working():
+    """Working dashboard without AI dependency"""
+    df = DATASTORE.get('df')
+    if df is None:
+        return render_template('dashboard.html', 
+                             error="No data loaded. Please upload a file first.",
+                             dashboard_plan_html="", kpis=[], chart_urls=[], tables=[])
+    
+    try:
+        # Create KPIs from actual data
+        kpis = []
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        
+        # Basic statistics
+        kpis.append({'label': 'Total Records', 'value': f'{len(df):,}', 'isnum': True})
+        kpis.append({'label': 'Total Columns', 'value': f'{len(df.columns)}', 'isnum': True})
+        
+        # Numeric column statistics
+        for col in numeric_cols[:3]:  # Top 3 numeric columns
+            total = df[col].sum()
+            avg = df[col].mean()
+            kpis.append({'label': f'Total {col.title()}', 'value': f'{total:,.2f}', 'isnum': True})
+            kpis.append({'label': f'Average {col.title()}', 'value': f'{avg:.2f}', 'isnum': True})
+        
+        # Generate charts
+        chart_urls = []
+        try:
+            default_charts = create_default_charts(df)
+            chart_urls = default_charts[:3]  # Limit to 3 charts
+        except Exception as e:
+            print(f"Chart generation error: {e}")
+        
+        # Simple dashboard plan
+        categorical_cols = df.select_dtypes(include=['object']).columns
+        dashboard_plan_html = f"""
+        <h2>Dataset Overview</h2>
+        <div class="row">
+            <div class="col-md-6">
+                <h4>Basic Information</h4>
+                <ul>
+                    <li>Total Rows: {len(df):,}</li>
+                    <li>Total Columns: {len(df.columns)}</li>
+                    <li>Numeric Columns: {len(numeric_cols)}</li>
+                    <li>Text Columns: {len(categorical_cols)}</li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <h4>Column Summary</h4>
+                <p><strong>Numeric:</strong> {', '.join(numeric_cols[:5])}</p>
+                <p><strong>Categorical:</strong> {', '.join(categorical_cols[:5])}</p>
+            </div>
+        </div>
+        """
+        
+        return render_template('dashboard.html',
+                             dashboard_plan_html=dashboard_plan_html,
+                             kpis=kpis[:8],
+                             chart_urls=chart_urls,
+                             tables=[],
+                             error=None)
+    
+    except Exception as e:
+        return render_template('dashboard.html',
+                             error=f"Dashboard generation failed: {str(e)}",
+                             dashboard_plan_html="", kpis=[], chart_urls=[], tables=[])
+
+##############################################
+# EXISTING ROUTES CONTINUE                   #
+##############################################
 
 @app.route('/debug-data', methods=['GET'])
 def debug_data():
@@ -1501,7 +1743,6 @@ def suggest_data_types():
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': f'Data type suggestion failed: {str(e)}'})
-
 
 @app.route('/download-clean-data')
 def download_clean_data():
