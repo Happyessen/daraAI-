@@ -12,14 +12,32 @@ import requests  # Added for diagnostic functions
 import time      # Added for diagnostic functions
 from datetime import datetime
 from dotenv import load_dotenv
+
+# Load environment variables first
 load_dotenv()
 
+# Initialize Flask app
 app = Flask(__name__)
 app.secret_key = "supersecret"
+
+# Production configuration
+if os.getenv('RAILWAY_ENVIRONMENT') or os.getenv('PORT'):
+    app.config['DEBUG'] = False
+    app.config['TESTING'] = False
+    port = int(os.getenv('PORT', 8000))
+else:
+    app.config['DEBUG'] = True
+    port = 5000
+
+# Configure folders and app settings
 app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB max file size
+
+# Create necessary directories
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs('static', exist_ok=True)
 
+# Global datastore
 DATASTORE = {}
 
 ##############################################
@@ -1105,7 +1123,7 @@ def dashboard():
         client = openai.AzureOpenAI(
             api_key=os.getenv("AZURE_OPENAI_API_KEY"),
             azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-            api_version="2024-02-15-preview"  # FIXED: Use consistent API version
+            api_version="2024-02-15-preview"
         )
         
         response = client.chat.completions.create(
@@ -1425,7 +1443,7 @@ def dashboard_working():
                              dashboard_plan_html="", kpis=[], chart_urls=[], tables=[])
 
 ##############################################
-# EXISTING ROUTES CONTINUE                   #
+# ADDITIONAL ROUTES                          #
 ##############################################
 
 @app.route('/debug-data', methods=['GET'])
@@ -1439,21 +1457,12 @@ def debug_data():
         debug_info = {
             'dataframe_shape': df.shape,
             'columns': list(df.columns),
-            'data_types': {col: str(dtype) for col, dtype in df.dtypes.items()},  # Convert to string
+            'data_types': {col: str(dtype) for col, dtype in df.dtypes.items()},
             'sample_data': df.head().to_dict(),
             'column_mappings': DATASTORE.get('column_mapping', {}),
         }
         
-        # Check product category amounts
-        if 'productcategory' in df.columns and 'amount' in df.columns:
-            category_totals = df.groupby('productcategory')['amount'].sum().sort_values(ascending=False)
-            debug_info['productcategory_totals'] = category_totals.to_dict()
-            debug_info['highest_category'] = {
-                'name': category_totals.index[0],
-                'amount': float(category_totals.iloc[0])  # Convert to float for JSON
-            }
-        
-        # Add more analysis
+        # Add data summary
         debug_info['data_summary'] = {
             'total_rows': len(df),
             'total_columns': len(df.columns),
@@ -1463,30 +1472,6 @@ def debug_data():
             'duplicates': int(df.duplicated().sum())
         }
         
-        # Add column statistics
-        debug_info['column_stats'] = {}
-        for col in df.columns:
-            stats = {
-                'dtype': str(df[col].dtype),
-                'missing_count': int(df[col].isnull().sum()),
-                'unique_count': int(df[col].nunique()),
-                'memory_usage': int(df[col].memory_usage(deep=True))
-            }
-            
-            # Add numeric stats if applicable
-            if df[col].dtype in ['int64', 'float64', 'Int64', 'Float64']:
-                try:
-                    stats.update({
-                        'min': float(df[col].min()) if not df[col].isnull().all() else None,
-                        'max': float(df[col].max()) if not df[col].isnull().all() else None,
-                        'mean': float(df[col].mean()) if not df[col].isnull().all() else None,
-                        'sum': float(df[col].sum()) if not df[col].isnull().all() else None
-                    })
-                except:
-                    pass
-            
-            debug_info['column_stats'][col] = stats
-        
         return jsonify(debug_info)
     
     except Exception as e:
@@ -1495,157 +1480,6 @@ def debug_data():
             'error': f'Debug failed: {str(e)}',
             'traceback': traceback.format_exc()
         })
-
-@app.route('/debug-charts')
-def debug_charts():
-    """Debug route to test chart generation"""
-    df = DATASTORE.get('df')
-    if df is None:
-        return jsonify({'error': 'No data loaded'})
-    
-    # Test chart specs that should work with your pizza data
-    test_specs = [
-        {
-            'chart_type': 'bar chart',
-            'x': 'branch',
-            'y': 'amount',
-            'agg': 'sum'
-        },
-        {
-            'chart_type': 'pie chart',
-            'x': 'pizza sold',
-            'y': 'quantity',
-            'agg': 'sum'
-        },
-        {
-            'chart_type': 'bar chart',
-            'x': 'branch',
-            'y': 'price',
-            'agg': 'avg'
-        },
-        {
-            'chart_type': 'horizontal bar chart',
-            'x': 'time range',
-            'y': 'amount',
-            'agg': 'sum'
-        }
-    ]
-    
-    results = []
-    for i, spec in enumerate(test_specs):
-        try:
-            print(f"\n=== Testing Chart Spec {i+1} ===")
-            print(f"Original: {spec}")
-            
-            # Test validation
-            validated_spec = validate_chart_spec_in_app(spec, df)
-            print(f"Validated: {validated_spec}")
-            
-            if validated_spec:
-                url = generate_chart_from_ai(validated_spec, df)
-                results.append({
-                    'spec': spec,
-                    'validated_spec': validated_spec,
-                    'url': url,
-                    'success': url is not None
-                })
-            else:
-                results.append({
-                    'spec': spec,
-                    'validated_spec': None,
-                    'url': None,
-                    'success': False,
-                    'error': 'Validation failed'
-                })
-        except Exception as e:
-            results.append({
-                'spec': spec,
-                'validated_spec': None,
-                'url': None,
-                'success': False,
-                'error': str(e)
-            })
-    
-    return jsonify({
-        'data_info': {
-            'shape': df.shape,
-            'columns': list(df.columns),
-            'dtypes': df.dtypes.to_dict(),
-            'numeric_columns': df.select_dtypes(include=[np.number]).columns.tolist(),
-            'categorical_columns': df.select_dtypes(include=['object', 'category']).columns.tolist()
-        },
-        'column_mappings': DATASTORE.get('column_mapping', {}),
-        'test_results': results
-    })
-
-@app.route('/convert-data-types', methods=['POST'])
-def convert_data_types():
-    """Convert data types for specified columns"""
-    try:
-        df = DATASTORE.get('df')
-        if df is None:
-            return jsonify({'error': 'No data loaded'})
-        
-        data_type_changes = request.get_json().get('data_type_changes', {})
-        if not data_type_changes:
-            return jsonify({'error': 'No data type changes provided'})
-        
-        conversion_log = []
-        converted_df = df.copy()
-        
-        for column, new_type in data_type_changes.items():
-            if column not in converted_df.columns:
-                conversion_log.append(f"Column '{column}' not found - skipped")
-                continue
-            
-            try:
-                original_type = str(converted_df[column].dtype)
-                
-                if new_type == 'datetime':
-                    converted_df[column] = pd.to_datetime(converted_df[column], errors='coerce')
-                    conversion_log.append(f"'{column}': {original_type} → datetime")
-                
-                elif new_type == 'category':
-                    converted_df[column] = converted_df[column].astype('category')
-                    conversion_log.append(f"'{column}': {original_type} → category")
-                
-                elif new_type == 'int':
-                    # Handle NaN values before converting to int
-                    if converted_df[column].isnull().any():
-                        converted_df[column] = converted_df[column].fillna(0)
-                    converted_df[column] = pd.to_numeric(converted_df[column], errors='coerce').astype('Int64')
-                    conversion_log.append(f"'{column}': {original_type} → integer")
-                
-                elif new_type == 'float':
-                    converted_df[column] = pd.to_numeric(converted_df[column], errors='coerce')
-                    conversion_log.append(f"'{column}': {original_type} → float")
-                
-                elif new_type == 'string':
-                    converted_df[column] = converted_df[column].astype('string')
-                    conversion_log.append(f"'{column}': {original_type} → string")
-                
-                elif new_type == 'boolean':
-                    # Convert to boolean with common mappings
-                    bool_map = {'true': True, 'false': False, '1': True, '0': False, 
-                               'yes': True, 'no': False, 'y': True, 'n': False}
-                    converted_df[column] = converted_df[column].astype(str).str.lower().map(bool_map)
-                    converted_df[column] = converted_df[column].astype('boolean')
-                    conversion_log.append(f"'{column}': {original_type} → boolean")
-                
-            except Exception as e:
-                conversion_log.append(f"Failed to convert '{column}' to {new_type}: {str(e)}")
-        
-        # Update the datastore
-        DATASTORE['df'] = converted_df
-        
-        return jsonify({
-            'success': True,
-            'conversion_log': conversion_log
-        })
-    
-    except Exception as e:
-        print(f"Error in convert_data_types: {e}")
-        return jsonify({'error': f'Data type conversion failed: {str(e)}'})
 
 @app.route('/suggest-data-types', methods=['POST'])
 def suggest_data_types():
@@ -1744,6 +1578,75 @@ def suggest_data_types():
         traceback.print_exc()
         return jsonify({'success': False, 'error': f'Data type suggestion failed: {str(e)}'})
 
+@app.route('/convert-data-types', methods=['POST'])
+def convert_data_types():
+    """Convert data types for specified columns"""
+    try:
+        df = DATASTORE.get('df')
+        if df is None:
+            return jsonify({'error': 'No data loaded'})
+        
+        data_type_changes = request.get_json().get('data_type_changes', {})
+        if not data_type_changes:
+            return jsonify({'error': 'No data type changes provided'})
+        
+        conversion_log = []
+        converted_df = df.copy()
+        
+        for column, new_type in data_type_changes.items():
+            if column not in converted_df.columns:
+                conversion_log.append(f"Column '{column}' not found - skipped")
+                continue
+            
+            try:
+                original_type = str(converted_df[column].dtype)
+                
+                if new_type == 'datetime':
+                    converted_df[column] = pd.to_datetime(converted_df[column], errors='coerce')
+                    conversion_log.append(f"'{column}': {original_type} → datetime")
+                
+                elif new_type == 'category':
+                    converted_df[column] = converted_df[column].astype('category')
+                    conversion_log.append(f"'{column}': {original_type} → category")
+                
+                elif new_type == 'int':
+                    # Handle NaN values before converting to int
+                    if converted_df[column].isnull().any():
+                        converted_df[column] = converted_df[column].fillna(0)
+                    converted_df[column] = pd.to_numeric(converted_df[column], errors='coerce').astype('Int64')
+                    conversion_log.append(f"'{column}': {original_type} → integer")
+                
+                elif new_type == 'float':
+                    converted_df[column] = pd.to_numeric(converted_df[column], errors='coerce')
+                    conversion_log.append(f"'{column}': {original_type} → float")
+                
+                elif new_type == 'string':
+                    converted_df[column] = converted_df[column].astype('string')
+                    conversion_log.append(f"'{column}': {original_type} → string")
+                
+                elif new_type == 'boolean':
+                    # Convert to boolean with common mappings
+                    bool_map = {'true': True, 'false': False, '1': True, '0': False, 
+                               'yes': True, 'no': False, 'y': True, 'n': False}
+                    converted_df[column] = converted_df[column].astype(str).str.lower().map(bool_map)
+                    converted_df[column] = converted_df[column].astype('boolean')
+                    conversion_log.append(f"'{column}': {original_type} → boolean")
+                
+            except Exception as e:
+                conversion_log.append(f"Failed to convert '{column}' to {new_type}: {str(e)}")
+        
+        # Update the datastore
+        DATASTORE['df'] = converted_df
+        
+        return jsonify({
+            'success': True,
+            'conversion_log': conversion_log
+        })
+    
+    except Exception as e:
+        print(f"Error in convert_data_types: {e}")
+        return jsonify({'error': f'Data type conversion failed: {str(e)}'})
+
 @app.route('/download-clean-data')
 def download_clean_data():
     """Download the cleaned dataset as CSV"""
@@ -1753,7 +1656,6 @@ def download_clean_data():
     
     try:
         # Create a filename with timestamp
-        from datetime import datetime
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"cleaned_data_{timestamp}.csv"
         
@@ -1786,7 +1688,6 @@ def download_original_data():
     
     try:
         # Create a filename with timestamp
-        from datetime import datetime
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"original_data_{timestamp}.csv"
         
@@ -1821,8 +1722,6 @@ def download_data_summary():
         return jsonify({'error': 'No data available'})
     
     try:
-        from datetime import datetime
-        
         # Create summary report
         summary_lines = [
             "DATA CLEANING SUMMARY REPORT",
@@ -1914,6 +1813,71 @@ def download_data_summary():
     except Exception as e:
         return jsonify({'error': f'Failed to generate summary: {str(e)}'})
 
+@app.route('/debug-charts')
+def debug_charts():
+    """Debug route to test chart generation"""
+    df = DATASTORE.get('df')
+    if df is None:
+        return jsonify({'error': 'No data loaded'})
+    
+    # Test chart specs
+    test_specs = [
+        {
+            'chart_type': 'bar chart',
+            'x': 'branch',
+            'y': 'amount',
+            'agg': 'sum'
+        },
+        {
+            'chart_type': 'pie chart',
+            'x': 'category',
+            'y': 'quantity',
+            'agg': 'sum'
+        }
+    ]
+    
+    results = []
+    for i, spec in enumerate(test_specs):
+        try:
+            validated_spec = validate_chart_spec_in_app(spec, df)
+            
+            if validated_spec:
+                url = generate_chart_from_ai(validated_spec, df)
+                results.append({
+                    'spec': spec,
+                    'validated_spec': validated_spec,
+                    'url': url,
+                    'success': url is not None
+                })
+            else:
+                results.append({
+                    'spec': spec,
+                    'validated_spec': None,
+                    'url': None,
+                    'success': False,
+                    'error': 'Validation failed'
+                })
+        except Exception as e:
+            results.append({
+                'spec': spec,
+                'validated_spec': None,
+                'url': None,
+                'success': False,
+                'error': str(e)
+            })
+    
+    return jsonify({
+        'data_info': {
+            'shape': df.shape,
+            'columns': list(df.columns),
+            'dtypes': {col: str(dtype) for col, dtype in df.dtypes.items()},
+            'numeric_columns': df.select_dtypes(include=[np.number]).columns.tolist(),
+            'categorical_columns': df.select_dtypes(include=['object', 'category']).columns.tolist()
+        },
+        'column_mappings': DATASTORE.get('column_mapping', {}),
+        'test_results': results
+    })
+
 @app.route('/reset-data')
 def reset_data():
     """Reset to original data"""
@@ -1925,5 +1889,9 @@ def reset_data():
         return jsonify({'success': True, 'message': 'Data reset to original state'})
     return jsonify({'error': 'No original data found'})
 
+##############################################
+# MAIN APPLICATION ENTRY POINT              #
+##############################################
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=app.config['DEBUG'], host='0.0.0.0', port=port)
