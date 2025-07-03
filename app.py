@@ -919,9 +919,12 @@ def parse_markdown_tables(answer):
 #         FLASK ROUTES      #
 #############################
 
+# Replace your current index route with this one:
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     table, error, filename = None, None, None
+    
     if request.method == 'POST':
         file = request.files['file']
         if file and file.filename.endswith(('.csv', '.xlsx')):
@@ -952,9 +955,11 @@ def index():
                 error = f"Failed to read file: {str(e)}"
         else:
             error = "Only CSV or Excel files allowed."
-    elif 'df' in DATASTORE:
-        df = DATASTORE['df']
-        table = df.head(20).to_html(classes='table table-striped', index=False, border=0)
+    
+    # 🔥 FRESH START CHANGE: Clear data on GET requests (fresh visits)
+    else:
+        DATASTORE.clear()  # Clear all previous data for fresh start
+        table = None
     
     return render_template('index.html', table=table, error=error, filename=filename)
 
